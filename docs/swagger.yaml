@@ -1,25 +1,216 @@
 basePath: /
 definitions:
-  main.Pong:
+  api.pong:
     properties:
       message:
         type: string
     type: object
-host: localhost:8089
+  models.ErrorResponse:
+    properties:
+      error:
+        description: Error message.
+        type: string
+    type: object
+  models.GetPaymentResponse:
+    properties:
+      amount:
+        description: Amount in the minor currency unit.
+        type: integer
+      card_number_last_four:
+        description: Last four digits of the card number.
+        type: integer
+      currency:
+        description: Three-letter ISO currency code.
+        type: string
+      expiry_month:
+        description: Expiry month in the range 1-12.
+        type: integer
+      expiry_year:
+        description: Expiry year.
+        type: integer
+      id:
+        description: Unique payment identifier.
+        type: string
+      payment_status:
+        description: 'Payment status: Authorized, Declined, or Rejected.'
+        type: string
+    type: object
+  models.PostPaymentRequest:
+    properties:
+      amount:
+        description: Amount in the minor currency unit, e.g. 1050 = 10.50.
+        type: integer
+      card_number:
+        description: Primary account number. Must be 14-19 digits.
+        type: string
+      card_number_last_four:
+        description: Last four digits of the card number.
+        type: integer
+      currency:
+        description: 'Three-letter ISO currency code. Supported values: GBP, USD,
+          EUR.'
+        type: string
+      cvv:
+        description: Card verification value. Must be 3 or 4 digits.
+        type: string
+      expiry_month:
+        description: Expiry month in the range 1-12.
+        type: integer
+      expiry_year:
+        description: Expiry year. Must not be in the past.
+        type: integer
+    required:
+    - amount
+    - card_number
+    - card_number_last_four
+    - currency
+    - cvv
+    - expiry_month
+    - expiry_year
+    type: object
+  models.PostPaymentResponse:
+    properties:
+      amount:
+        description: Amount in the minor currency unit.
+        type: integer
+      card_number_last_four:
+        description: Last four digits of the card number.
+        type: integer
+      currency:
+        description: Three-letter ISO currency code.
+        type: string
+      expiry_month:
+        description: Expiry month in the range 1-12.
+        type: integer
+      expiry_year:
+        description: Expiry year.
+        type: integer
+      id:
+        description: Unique payment identifier.
+        type: string
+      payment_status:
+        description: 'Payment status: Authorized, Declined, or Rejected.'
+        type: string
+    type: object
+host: localhost:8090
 info:
   contact: {}
   description: Interview challenge for building a Payment Gateway - Go version
   title: Payment Gateway Challenge Go
 paths:
-  /ping:
+  /api/payments:
+    post:
+      consumes:
+      - application/json
+      description: Process a payment through the acquiring bank simulator. Invalid
+        requests are returned as Rejected without being sent to the bank.
+      parameters:
+      - description: Idempotency key
+        in: header
+        name: Idempotency-Key
+        type: string
+      - description: Payment request
+        in: body
+        name: payment
+        required: true
+        schema:
+          $ref: '#/definitions/models.PostPaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Idempotent replay
+          schema:
+            $ref: '#/definitions/models.PostPaymentResponse'
+        "201":
+          description: Authorized, Declined, or Rejected payment
+          schema:
+            $ref: '#/definitions/models.PostPaymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Process a payment
+      tags:
+      - payments
+  /api/payments/{id}:
     get:
+      description: Retrieve a previously processed payment
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/main.Pong'
+            $ref: '#/definitions/models.GetPaymentResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get payment by ID
+      tags:
+      - payments
+  /health/live:
+    get:
+      description: Check whether the service is alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness probe
+      tags:
+      - health
+  /health/ready:
+    get:
+      description: Check whether the service is ready
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Readiness probe
+      tags:
+      - health
+  /ping:
+    get:
+      description: Simple ping endpoint
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.pong'
+      summary: Health ping
+      tags:
+      - health
 securityDefinitions:
   BasicAuth:
     type: basic

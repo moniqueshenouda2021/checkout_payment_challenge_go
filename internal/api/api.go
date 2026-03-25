@@ -3,9 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"time"
 
+	"github.com/cko-recruitment/payment-gateway-challenge-go/internal/observability"
 	"github.com/cko-recruitment/payment-gateway-challenge-go/internal/repository"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -15,10 +19,14 @@ import (
 type Api struct {
 	router       *chi.Mux
 	paymentsRepo *repository.PaymentsRepository
+	logger       *slog.Logger
 }
 
 func New() *Api {
-	a := &Api{}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	a := &Api{
+		logger: logger,
+	}
 	a.paymentsRepo = repository.NewPaymentsRepository()
 	a.setupRouter()
 
@@ -55,10 +63,17 @@ func (a *Api) Run(ctx context.Context, addr string) error {
 
 func (a *Api) setupRouter() {
 	a.router = chi.NewRouter()
-	a.router.Use(middleware.Logger)
+	a.router.Use(middleware.RequestID)
+	a.router.Use(middleware.RealIP)
+	a.router.Use(middleware.Recoverer)
+	a.router.Use(middleware.Timeout(5 * time.Second))
+	a.router.Use(observability.RequestLogger(a.logger))
 
 	a.router.Get("/ping", a.PingHandler())
+	a.router.Get("/health/live", a.LivenessHandler())
+	a.router.Get("/health/ready", a.ReadinessHandler())
 	a.router.Get("/swagger/*", a.SwaggerHandler())
 
+	a.router.Post("/api/payments", a.PostPaymentHandler())
 	a.router.Get("/api/payments/{id}", a.GetPaymentHandler())
 }

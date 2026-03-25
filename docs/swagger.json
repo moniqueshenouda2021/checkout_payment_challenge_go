@@ -8,16 +8,172 @@
     "host": "localhost:8090",
     "basePath": "/",
     "paths": {
-        "/ping": {
-            "get": {
+        "/api/payments": {
+            "post": {
+                "description": "Process a payment through the acquiring bank simulator. Invalid requests are returned as Rejected without being sent to the bank.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Process a payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Payment request",
+                        "name": "payment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PostPaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Idempotent replay",
+                        "schema": {
+                            "$ref": "#/definitions/models.PostPaymentResponse"
+                        }
+                    },
+                    "201": {
+                        "description": "Authorized, Declined, or Rejected payment",
+                        "schema": {
+                            "$ref": "#/definitions/models.PostPaymentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/payments/{id}": {
+            "get": {
+                "description": "Retrieve a previously processed payment",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Get payment by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Payment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/main.Pong"
+                            "$ref": "#/definitions/models.GetPaymentResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health/live": {
+            "get": {
+                "description": "Check whether the service is alive",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Liveness probe",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health/ready": {
+            "get": {
+                "description": "Check whether the service is ready",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness probe",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ping": {
+            "get": {
+                "description": "Simple ping endpoint",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health ping",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.pong"
                         }
                     }
                 }
@@ -25,10 +181,127 @@
         }
     },
     "definitions": {
-        "main.Pong": {
+        "api.pong": {
             "type": "object",
             "properties": {
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error message.",
+                    "type": "string"
+                }
+            }
+        },
+        "models.GetPaymentResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "Amount in the minor currency unit.",
+                    "type": "integer"
+                },
+                "card_number_last_four": {
+                    "description": "Last four digits of the card number.",
+                    "type": "integer"
+                },
+                "currency": {
+                    "description": "Three-letter ISO currency code.",
+                    "type": "string"
+                },
+                "expiry_month": {
+                    "description": "Expiry month in the range 1-12.",
+                    "type": "integer"
+                },
+                "expiry_year": {
+                    "description": "Expiry year.",
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "Unique payment identifier.",
+                    "type": "string"
+                },
+                "payment_status": {
+                    "description": "Payment status: Authorized, Declined, or Rejected.",
+                    "type": "string"
+                }
+            }
+        },
+        "models.PostPaymentRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "card_number",
+                "card_number_last_four",
+                "currency",
+                "cvv",
+                "expiry_month",
+                "expiry_year"
+            ],
+            "properties": {
+                "amount": {
+                    "description": "Amount in the minor currency unit, e.g. 1050 = 10.50.",
+                    "type": "integer"
+                },
+                "card_number": {
+                    "description": "Primary account number. Must be 14-19 digits.",
+                    "type": "string"
+                },
+                "card_number_last_four": {
+                    "description": "Last four digits of the card number.",
+                    "type": "integer"
+                },
+                "currency": {
+                    "description": "Three-letter ISO currency code. Supported values: GBP, USD, EUR.",
+                    "type": "string"
+                },
+                "cvv": {
+                    "description": "Card verification value. Must be 3 or 4 digits.",
+                    "type": "string"
+                },
+                "expiry_month": {
+                    "description": "Expiry month in the range 1-12.",
+                    "type": "integer"
+                },
+                "expiry_year": {
+                    "description": "Expiry year. Must not be in the past.",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PostPaymentResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "Amount in the minor currency unit.",
+                    "type": "integer"
+                },
+                "card_number_last_four": {
+                    "description": "Last four digits of the card number.",
+                    "type": "integer"
+                },
+                "currency": {
+                    "description": "Three-letter ISO currency code.",
+                    "type": "string"
+                },
+                "expiry_month": {
+                    "description": "Expiry month in the range 1-12.",
+                    "type": "integer"
+                },
+                "expiry_year": {
+                    "description": "Expiry year.",
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "Unique payment identifier.",
+                    "type": "string"
+                },
+                "payment_status": {
+                    "description": "Payment status: Authorized, Declined, or Rejected.",
                     "type": "string"
                 }
             }
