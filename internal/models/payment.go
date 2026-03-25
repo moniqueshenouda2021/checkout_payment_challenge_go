@@ -10,9 +10,6 @@ type PostPaymentRequest struct {
 	// Primary account number. Must be 14-19 digits.
 	CardNumber string `json:"card_number" binding:"required"`
 
-	// Last four digits of the card number.
-	CardNumberLastFour int `json:"card_number_last_four" binding:"required"`
-
 	// Expiry month in the range 1-12.
 	ExpiryMonth int `json:"expiry_month" binding:"required"`
 
@@ -37,7 +34,7 @@ type PostPaymentResponse struct {
 	PaymentStatus string `json:"payment_status"`
 
 	// Last four digits of the card number.
-	CardNumberLastFour int `json:"card_number_last_four"`
+	CardNumberLastFour string `json:"card_number_last_four"`
 
 	// Expiry month in the range 1-12.
 	ExpiryMonth int `json:"expiry_month"`
@@ -60,7 +57,7 @@ type GetPaymentResponse struct {
 	PaymentStatus string `json:"payment_status"`
 
 	// Last four digits of the card number.
-	CardNumberLastFour int `json:"card_number_last_four"`
+	CardNumberLastFour string `json:"card_number_last_four"`
 
 	// Expiry month in the range 1-12.
 	ExpiryMonth int `json:"expiry_month"`

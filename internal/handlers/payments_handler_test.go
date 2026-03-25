@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/cko-recruitment/payment-gateway-challenge-go/internal/bank"
@@ -35,7 +36,7 @@ func TestGetPaymentHandler(t *testing.T) {
 	payment := models.PostPaymentResponse{
 		Id:                 "test-id",
 		PaymentStatus:      "test-successful-status",
-		CardNumberLastFour: 1234,
+		CardNumberLastFour: "1234",
 		ExpiryMonth:        10,
 		ExpiryYear:         2035,
 		Currency:           "GBP",
@@ -75,6 +76,10 @@ func TestGetPaymentHandler(t *testing.T) {
 			t.Errorf("handler returned wrong status code: got %v want %v",
 				status, http.StatusOK)
 		}
+		var response models.GetPaymentResponse
+		require.NoError(t, json.NewDecoder(w.Body).Decode(&response))
+		assert.Equal(t, "1234", response.CardNumberLastFour)
+
 	})
 	t.Run("PaymentNotFound", func(t *testing.T) {
 		// Create a new HTTP request for testing with a non-existing payment ID
@@ -150,20 +155,6 @@ func TestPostPaymentHandler(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:   "mismatched last four",
-			client: fakeBankClient{},
-			request: models.PostPaymentRequest{
-				CardNumber:         "4242424242424241",
-				CardNumberLastFour: 9999,
-				ExpiryMonth:        10,
-				ExpiryYear:         2035,
-				Currency:           "GBP",
-				Amount:             100,
-				Cvv:                "123",
-			},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
 			name: "bank unavailable",
 			client: fakeBankClient{
 				err: bank.ErrBankUnavailable,
@@ -214,11 +205,12 @@ func TestPostPaymentHandler(t *testing.T) {
 			var response models.PostPaymentResponse
 			require.NoError(t, json.NewDecoder(w.Body).Decode(&response))
 			assert.Equal(t, tt.expectedResult, response.PaymentStatus)
-			assert.Equal(t, tt.request.Currency, response.Currency)
+			assert.Equal(t, strings.ToUpper(strings.TrimSpace(tt.request.Currency)), response.Currency)
+			assert.Equal(t, tt.request.CardNumber[len(tt.request.CardNumber)-4:], response.CardNumberLastFour)
+
 		})
 	}
 }
-
 func TestPostPaymentHandlerIdempotency(t *testing.T) {
 	originalFactory := newPaymentsService
 	t.Cleanup(func() {

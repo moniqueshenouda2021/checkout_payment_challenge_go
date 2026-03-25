@@ -88,10 +88,7 @@ func (s *PaymentsService) ProcessPayment(ctx context.Context, req models.PostPay
 }
 
 func newPayment(req models.PostPaymentRequest, status string) models.PostPaymentResponse {
-	cardLastFour := req.CardNumberLastFour
-	if cardLastFour == 0 && len(req.CardNumber) >= 4 {
-		fmt.Sscanf(req.CardNumber[len(req.CardNumber)-4:], "%d", &cardLastFour)
-	}
+	cardLastFour, _ := extractCardLastFour(req.CardNumber)
 
 	return models.PostPaymentResponse{
 		Id:                 uuid.NewString(),
@@ -108,17 +105,6 @@ func validatePaymentRequest(req models.PostPaymentRequest, now time.Time) error 
 	if !isDigitsOnly(req.CardNumber) || len(req.CardNumber) < 14 || len(req.CardNumber) > 19 {
 
 		return errors.New("card_number must be 14-19 digits")
-	}
-
-	if req.CardNumberLastFour != 0 {
-		expectedLastFour, err := extractCardLastFour(req.CardNumber)
-		if err != nil {
-			return errors.New("card_number_last_four could not be derived from card_number")
-		}
-
-		if req.CardNumberLastFour != expectedLastFour {
-			return errors.New("card_number_last_four does not match card_number")
-		}
 	}
 
 	if req.Amount <= 0 {
@@ -158,12 +144,10 @@ func isDigitsOnly(value string) bool {
 
 	return true
 }
-func extractCardLastFour(cardNumber string) (int, error) {
+func extractCardLastFour(cardNumber string) (string, error) {
 	if len(cardNumber) < 4 {
-		return 0, errors.New("card_number must be at least 4 digits")
+		return "", errors.New("card_number must be at least 4 digits")
 	}
 
-	var lastFour int
-	_, err := fmt.Sscanf(cardNumber[len(cardNumber)-4:], "%d", &lastFour)
-	return lastFour, err
+	return cardNumber[len(cardNumber)-4:], nil
 }

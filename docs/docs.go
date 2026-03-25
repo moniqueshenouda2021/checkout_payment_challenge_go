@@ -214,7 +214,7 @@ const docTemplate = `{
                 },
                 "card_number_last_four": {
                     "description": "Last four digits of the card number.",
-                    "type": "integer"
+                    "type": "string"
                 },
                 "currency": {
                     "description": "Three-letter ISO currency code.",
@@ -243,7 +243,6 @@ const docTemplate = `{
             "required": [
                 "amount",
                 "card_number",
-                "card_number_last_four",
                 "currency",
                 "cvv",
                 "expiry_month",
@@ -257,10 +256,6 @@ const docTemplate = `{
                 "card_number": {
                     "description": "Primary account number. Must be 14-19 digits.",
                     "type": "string"
-                },
-                "card_number_last_four": {
-                    "description": "Last four digits of the card number.",
-                    "type": "integer"
                 },
                 "currency": {
                     "description": "Three-letter ISO currency code. Supported values: GBP, USD, EUR.",
@@ -289,7 +284,7 @@ const docTemplate = `{
                 },
                 "card_number_last_four": {
                     "description": "Last four digits of the card number.",
-                    "type": "integer"
+                    "type": "string"
                 },
                 "currency": {
                     "description": "Three-letter ISO currency code.",

@@ -41,19 +41,18 @@ func TestPaymentsServiceReturnsAuthorizedPayment(t *testing.T) {
 	}
 
 	response, replayed, err := svc.ProcessPayment(context.Background(), models.PostPaymentRequest{
-		CardNumber:         "4242424242424241",
-		CardNumberLastFour: 4241,
-		ExpiryMonth:        10,
-		ExpiryYear:         2035,
-		Currency:           " gbp ",
-		Amount:             1050,
-		Cvv:                "123",
+		CardNumber:  "4242424242424241",
+		ExpiryMonth: 10,
+		ExpiryYear:  2035,
+		Currency:    " gbp ",
+		Amount:      1050,
+		Cvv:         "123",
 	}, "")
 
 	require.NoError(t, err)
 	assert.False(t, replayed)
 	assert.Equal(t, models.PaymentStatusAuthorized, response.PaymentStatus)
-	assert.Equal(t, 4241, response.CardNumberLastFour)
+	assert.Equal(t, "4241", response.CardNumberLastFour)
 	assert.Equal(t, "GBP", response.Currency)
 	assert.Equal(t, 1050, response.Amount)
 	assert.NotEmpty(t, response.Id)
@@ -73,19 +72,18 @@ func TestPaymentsServiceReturnsDeclinedPayment(t *testing.T) {
 	}
 
 	response, replayed, err := svc.ProcessPayment(context.Background(), models.PostPaymentRequest{
-		CardNumber:         "4242424242424242",
-		CardNumberLastFour: 4242,
-		ExpiryMonth:        10,
-		ExpiryYear:         2035,
-		Currency:           "GBP",
-		Amount:             1050,
-		Cvv:                "123",
+		CardNumber:  "4242424242424242",
+		ExpiryMonth: 10,
+		ExpiryYear:  2035,
+		Currency:    "GBP",
+		Amount:      1050,
+		Cvv:         "123",
 	}, "")
 
 	require.NoError(t, err)
 	assert.False(t, replayed)
 	assert.Equal(t, models.PaymentStatusDeclined, response.PaymentStatus)
-	assert.Equal(t, 4242, response.CardNumberLastFour)
+	assert.Equal(t, "4242", response.CardNumberLastFour)
 	assert.Equal(t, "GBP", response.Currency)
 	assert.Equal(t, 1050, response.Amount)
 	assert.NotEmpty(t, response.Id)
@@ -207,30 +205,6 @@ func TestPaymentsServiceRejectsInvalidCVVWithoutCallingBank(t *testing.T) {
 		Currency:    "GBP",
 		Amount:      100,
 		Cvv:         "12a",
-	}, "")
-
-	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrValidation)
-	assert.False(t, replayed)
-	assert.Equal(t, models.PostPaymentResponse{}, response)
-	assert.Equal(t, 0, bankClient.calls)
-}
-func TestPaymentsServiceRejectsMismatchedLastFourWithoutCallingBank(t *testing.T) {
-	repo := repository.NewPaymentsRepository()
-	bankClient := &bankStub{}
-	svc := NewPaymentsService(repo, bankClient)
-	svc.now = func() time.Time {
-		return time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
-	}
-
-	response, replayed, err := svc.ProcessPayment(context.Background(), models.PostPaymentRequest{
-		CardNumber:         "4242424242424241",
-		CardNumberLastFour: 9999,
-		ExpiryMonth:        10,
-		ExpiryYear:         2035,
-		Currency:           "GBP",
-		Amount:             100,
-		Cvv:                "123",
 	}, "")
 
 	require.Error(t, err)

@@ -126,12 +126,17 @@ Responsibilities:
 The service validates:
 
 - card number is numeric and between 14 and 19 digits
-- `card_number_last_four` matches the supplied card number when provided
 - amount is greater than zero
 - currency is one of `GBP`, `USD`, `EUR`
 - expiry month is between 1 and 12
 - card is not expired
 - CVV is numeric and 3 or 4 digits
+
+### Derived Card Details
+
+The POST request accepts the full `card_number` only.
+
+The service derives `card_number_last_four` from `card_number` and includes it in stored and returned payment responses. It is returned as a string so values such as `0001` are preserved correctly.
 
 ### Currency Handling
 
@@ -169,7 +174,8 @@ The following assumptions were made during implementation:
 - The supported currencies for this challenge are limited to `GBP`, `USD`, and `EUR`.
 - The challenge permits in-memory persistence, so durable database storage was intentionally not introduced.
 - The bank simulator is treated as the downstream acquiring-bank dependency, and the gateway is responsible for validating requests before sending valid requests to it.
-- `card_number_last_four` remains part of the current public request model by design choice, but it is validated against the supplied card number when present.
+- `card_number_last_four` is not accepted in the POST request and is derived from `card_number` inside the service layer.
+- `card_number_last_four` is returned as a string in API responses so values like `0001` are preserved correctly.
 - The health endpoints are intentionally lightweight at this stage.
   - Ping is a simple reachability check.
   - Liveness confirms the process is alive.
@@ -196,7 +202,7 @@ Operational support currently included:
 Current security-related behavior:
 
 - full card number is accepted for processing but not returned in payment responses
-- only the last four digits are returned in stored and retrieved payment responses
+- only the last four digits, derived from the card number, are returned in stored and retrieved payment responses
 - CVV is not persisted in payment responses
 - request body size is limited
 - unknown JSON fields are rejected
@@ -244,12 +250,12 @@ Handler tests cover:
 - authorized payment flow
 - declined payment flow
 - invalid request handling
-- mismatched last-four handling
 - bank unavailable behavior
 - idempotency behavior
 - malformed JSON
 - unknown fields
 - multiple JSON objects in one request body
+- currency normalization
 
 Service tests cover:
 
@@ -259,7 +265,7 @@ Service tests cover:
 - unsupported currency rejection
 - expired card rejection
 - invalid CVV rejection
-- mismatched last-four rejection
+- last-four derivation from `card_number`
 - idempotent replay behavior
 
 ### Final Test Result
@@ -268,7 +274,6 @@ Final verification command:
 
 ```powershell
 go test ./...
-```
 
 Result: all tests passed successfully in the active repository.
 
@@ -277,8 +282,8 @@ Result: all tests passed successfully in the active repository.
 The following improvements were identified during implementation and review:
 
 - Return an array of validation errors instead of only the first validation error encountered, to improve client feedback for invalid requests.
-- Remove `card_number_last_four` from the public request model and derive it entirely from `card_number` in the service layer.
-- If `card_number_last_four` remains part of the contract, continue validating that it matches the final four digits of the supplied `card_number`.
+- Strengthen idempotency handling by reserving `Idempotency-Key` values while a payment is in progress, so concurrent requests with the same key cannot trigger duplicate downstream processing.
+- Strengthen idempotency handling by binding each `Idempotency-Key` to the original request payload, so a reused key with different payment details is rejected instead of replaying the first stored response. A simple next step would be to persist a normalized snapshot or fingerprint of the original request and compare future requests with the same key before returning a replayed result.
 - Expand readiness checks to validate important dependencies if the service moves toward a production-like deployment.
 - Introduce durable persistence instead of in-memory storage.
 - Introduce a dedicated internal domain model rather than storing API-shaped response models in the repository.
@@ -287,6 +292,3 @@ The following improvements were identified during implementation and review:
 - Add retry, backoff, or circuit-breaker behavior around the downstream bank client.
 - Add richer observability such as metrics and traces.
 
-## Closing Summary
-
-The final implementation is functionally complete for the challenge scope, documented, tested, and structured to be maintainable and extensible. The code passes the automated test suite, uses a clear layered architecture, and includes explicit assumptions and future improvement notes for reviewers.
